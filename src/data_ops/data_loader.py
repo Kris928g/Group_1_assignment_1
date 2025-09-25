@@ -13,6 +13,7 @@ import pandas as pd
 import xarray as xr
 import numpy as np
 import yaml
+from utils.utils import load_dataset
 
 
 class DataLoader:
@@ -29,39 +30,51 @@ class DataLoader:
     question: str
     input_path: Path
 
-    def __init__(self):
-        """
-        Post-initialization to load and validate all required datasets (placeholder function)
+    def __init__(self, input_path: str, question_name: str):
 
-        example usage:
-        self.input_path = Path(self.input_path).resolve()
+        self.input_path = Path(input_path)
+        self.question = question_name
+        self.full_dataset = None
         
-        # Load metadata (auxiliary scenario data)
-        self.load_aux_data('question1a_scenario1_aux_data.yaml')
-        
-        # Load CSV and json datasets
-        self.data()
-        """
+        print(f"Loading dataset for question: '{self.question}'...")
+        self._load_dataset(self.question)
+
+        try:
+            #  load each file and assign it to a named attribute
+            self.appliance_params = self._load_data_file(self.question, "appliance_params.json")
+            self.bus_params = self._load_data_file(self.question, "bus_params.json")
+            self.consumer_params = self._load_data_file(self.question, "consumer_params.json")
+            self.der_production = self._load_data_file(self.question, "DER_production.json")
+            self.usage_preference = self._load_data_file(self.question, "usage_preference.json")
+            
+            print("Successfully loaded all data files.")
+
+        except (FileNotFoundError, ValueError) as e:
+            # If any file fails to load, we stop the process by re-raising the exception.
+            print(f"Error loading data for question '{self.question}'.")
+            raise e
         pass
 
     def _load_dataset(self, question_name: str):
-        """Helper function to load all CSV or json files, using the appropriate method based on file extension.
+
+        self.full_dataset = load_dataset(self.question)
         
-        example usage: 
-        call the load_dataset() function from utils.py to load all files in the input_path directory
-        save all data as class attributes (e.g. self.demand, self.wind, etc.), structured as pandas DataFrames or Series (or other format as prefered)
-        """
+        if not self.full_dataset:
+            raise FileNotFoundError(f"No data was loaded for question '{self.question}'. "
+                                    f"Check that the directory '../data/{self.question}' exists and is not empty.")
         pass
 
 
     def _load_data_file(self, question_name: str, file_name: str):
-        """
-        Placeholder function 
-        Helper function to load a specific CSV or json file, using the appropriate method based on file extension.. Raises FileNotFoundError if missing.
+        file_key = Path(file_name).stem
         
-        example usage: 
-        define and call a load_data_file() function from utils.py to load a specific file in the input_path directory
-        save all data as class attributes (e.g. self.demand, self.wind, etc.), structured as pandas DataFrames or Series (or other format as prefered)"""
+        try:
+            # Look up the data in the already-loaded dictionary
+            return self.full_dataset[file_key]
+        except KeyError:
+            # This error means the file was missing when _load_dataset ran
+            raise KeyError(f"Data key '{file_key}' not found in the loaded dataset. "
+                           f"Ensure the file '{file_name}' exists in the directory.")
         pass
 
     def load_aux_data(self, question_name: str, filename: str):
