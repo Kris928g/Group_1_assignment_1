@@ -40,7 +40,7 @@ def main():
     # --- Configuration ---
     # This path is now relative to the 'src' directory.
     DATA_PATH = "../data" 
-    QUESTION_NAME = "question_1a"
+    QUESTION_NAME = "question_1c"
 
     try:
         # --- STEP 1: LOAD RAW DATA ---
