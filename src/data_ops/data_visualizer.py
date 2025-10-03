@@ -55,7 +55,6 @@ class DataVisualizer:
             block (bool): If True, the script will pause until the plot is closed.
                           If False, the script continues after showing the plot.
         """
--
         plt.figure(figsize=(16, 8))
         results_df['pv_self_consumption_kw'] = results_df[['pv_generation_kw', 'flexible_load_kw']].min(axis=1)
         plt.bar(results_df.index, results_df['pv_self_consumption_kw'], label='PV Self-Consumption', color='orange')
