@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 # Establish the absolute project root and add 'src' to the path
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -20,11 +21,12 @@ if __name__ == "__main__":
 
         ]
 
-        # 1. Instantiate the runner, passing the project root and the list of scenarios.
         experiment_runner = Runner(project_root_path=PROJECT_ROOT, scenarios_to_run=SCENARIOS_TO_RUN)
         
-        # 2. Execute all configured simulations in sequence.
-        experiment_runner.run_all_simulations()
+        experiment_runner.run_all_scenarios()
+        print("\nAll scenarios processed. Displaying plots.")
+        print("Close any plot window to exit the program.")
+        plt.show()
 
     except Exception as e:
         print(f"\nA critical error occurred in the main workflow: {e}")
