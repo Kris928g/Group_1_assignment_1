@@ -1,43 +1,106 @@
-from pathlib import Path
-from typing import Dict, List
+# src/runner/runner.py
 
+import os
+from pathlib import Path
+
+# Import all the necessary components from your project structure
+from data_ops.data_loader import DataLoader
+from data_ops.data_processor import DataProcessor
+from data_ops.data_visualizer import DataVisualizer
+from opt_model.opt_model import OptModel 
+from utils.summary import ResultSummary
 
 class Runner:
     """
-    Handles configuration setting, data loading and preparation, model(s) execution, results saving and ploting
+    Orchestrates the full workflow for a list of specified optimization scenarios.
     """
+    def __init__(self, project_root_path: Path, scenarios_to_run: list):
+        """
+        Initializes the Runner for a batch of experiments.
 
-    def __init__(self) -> None:
-        """Initialize the Runner."""
-
-    def _load_config(self) -> None:
-        """Load configuration (placeholder method)"""
-    # Extract simulation configuration and hyperparameter values (e.g. question, scenarios for sensitivity analysis, duration of simulation, solver name, etc.) and store them as class attributes (e.g. self.scenario_list, self.solver_name, etc.)
-    
-    def _create_directories(self) -> None:
-        """Create required directories for each simulation configuration. (placeholder method)"""
-
-    def prepare_data_single_simulation(self, question_name) -> None:
-        """Prepare input data for a single simulation (placeholder method)"""
-        # Prepare input data using DataProcessor for a given simulation configuration and store it as class attributes (e.g. self.data)
-
-    def prepare_data_all_simulations(self) -> None:
-        """Prepare input data for multiple scenarios/sensitivity analysis/questions (placeholder method)"""
-        # Extend data_loader to handle multiple scenarios/questions
-        # Prepare data using data_loader for multiple scenarios/questions
+        Args:
+            project_root_path (Path): The absolute path to the project root.
+            scenarios_to_run (list): A list of scenario names to execute (e.g., 
+                                     ["question_1a", "question_1a_FlatPrice"]).
+        """
+        self.project_root = project_root_path
+        self.scenarios_to_run = scenarios_to_run
         
-    def run_single_simulation(self,Args) -> None:
-        """
-        Run a single simulation for a given question and simulation path (placeholder method).
+        # Define key paths reliably from the absolute project root
+        self.data_path = self.project_root / "data"
+        self.src_path = self.project_root / "src"
+        self.results_path = self.project_root / "results"
+        
+        self._create_directories()
+        print(f"--- Runner initialized for scenarios: {self.scenarios_to_run} ---")
 
-        Args (examples):
-            question: The question name for the simulation
-            simulation_path: The path to the simulation data
+    def _create_directories(self) -> None:
+        """Create required output directories for each scenario."""
+        for scenario_name in self.scenarios_to_run:
+            (self.results_path / scenario_name).mkdir(parents=True, exist_ok=True)
+        print("Output directories created.")
 
+    def _run_single_scenario(self, question_name: str):
         """
-        # Initialize Optimization Model for the given question and simulation path
-        # Run the model
-        pass
-    def run_all_simulations(self) -> None:
-        """Run all simulations for the configured scenarios (placeholder method)."""
-        pass
+        Executes the full pipeline for one specific scenario.
+        This method contains the logic from your original 'run' method.
+        """
+        print(f"\n{'='*20} [ STARTING SCENARIO: {question_name} ] {'='*20}")
+        try:
+            # STEP 1: Load and Process Data
+            print(f"\n[1/4] Loading and processing data...")
+            loader = DataLoader(input_path="../data", question_name=question_name)
+            processor = DataProcessor(loader)
+            print("...Data preparation complete.")
+
+            # STEP 2: Build and Solve the Optimization Model
+            print(f"\n[2/4] Building and solving the optimization model...")
+            model = OptModel(processor.hourly_params, processor.system_params)
+            results_df = model.solve()
+
+            # STEP 3 & 4: Summarize and Visualize the Results
+            print(f"\n[3/4] Summarizing and visualizing results...")
+            if results_df is not None:
+                summary = ResultSummary(
+                    results_df=results_df, 
+                    hourly_params=processor.hourly_params, 
+                    system_params=processor.system_params
+                )
+                summary.print_summary()
+                
+                visualizer = DataVisualizer(processor)
+                visualizer.plot_optimization_results(results_df)
+
+                # --- Good Practice: Save the results to the scenario's folder ---
+                output_dir = self.results_path / question_name
+                results_df.to_csv(output_dir / "optimal_schedule.csv", index=False)
+                # To save the plot: visualizer.plot_optimization_results(results_df, save_path=output_dir / "schedule.png")
+                print(f"...Results artifacts saved to: {output_dir.resolve()}")
+
+            else:
+                print("...No results to summarize or visualize as the optimization failed.")
+        
+        except Exception as e:
+            print(f"\nAn ERROR occurred during the run for '{question_name}': {e}")
+            import traceback
+            traceback.print_exc()
+        
+        print(f"\n{'='*20} [ FINISHED SCENARIO: {question_name} ] {'='*20}")
+
+    def run_all_simulations(self):
+        """
+        The main public method that executes the pipeline for all configured scenarios.
+        """
+        original_cwd = Path.cwd()
+        try:
+            # Change CWD to the reliable, absolute 'src' path so utils.py works
+            os.chdir(self.src_path)
+            
+            # Loop through each configured scenario and run it
+            for scenario in self.scenarios_to_run:
+                self._run_single_scenario(scenario)
+        
+        finally:
+            # Always change back to the original directory
+            os.chdir(original_cwd)
+            print("\n--- All scenarios have been executed. ---")
