@@ -1,43 +1,63 @@
-from pathlib import Path
-from typing import Dict, List
+# src/runner/runner.py
 
+import os
+from pathlib import Path
+
+# Import all the necessary components
+from data_ops.data_loader import DataLoader
+from data_ops.data_processor import DataProcessor
+from data_ops.data_visualizer import DataVisualizer
+from opt_model.opt_model import OptModel # Make sure this class name matches your file
 
 class Runner:
     """
-    Handles configuration setting, data loading and preparation, model(s) execution, results saving and ploting
+    Orchestrates the full workflow for a single optimization scenario.
     """
-
-    def __init__(self) -> None:
-        """Initialize the Runner."""
-
-    def _load_config(self) -> None:
-        """Load configuration (placeholder method)"""
-    # Extract simulation configuration and hyperparameter values (e.g. question, scenarios for sensitivity analysis, duration of simulation, solver name, etc.) and store them as class attributes (e.g. self.scenario_list, self.solver_name, etc.)
-    
-    def _create_directories(self) -> None:
-        """Create required directories for each simulation configuration. (placeholder method)"""
-
-    def prepare_data_single_simulation(self, question_name) -> None:
-        """Prepare input data for a single simulation (placeholder method)"""
-        # Prepare input data using DataProcessor for a given simulation configuration and store it as class attributes (e.g. self.data)
-
-    def prepare_data_all_simulations(self) -> None:
-        """Prepare input data for multiple scenarios/sensitivity analysis/questions (placeholder method)"""
-        # Extend data_loader to handle multiple scenarios/questions
-        # Prepare data using data_loader for multiple scenarios/questions
+    def __init__(self, project_root_path: Path, question_name: str):
+        self.project_root = project_root_path
+        self.question_name = question_name
         
-    def run_single_simulation(self,Args) -> None:
-        """
-        Run a single simulation for a given question and simulation path (placeholder method).
+        # Define paths reliably from the absolute project root
+        self.data_path = self.project_root / "data"
+        self.src_path = self.project_root / "src"
+        
+        print(f"--- Runner initialized for Scenario: {self.question_name} ---")
 
-        Args (examples):
-            question: The question name for the simulation
-            simulation_path: The path to the simulation data
-
+    def run(self):
         """
-        # Initialize Optimization Model for the given question and simulation path
-        # Run the model
-        pass
-    def run_all_simulations(self) -> None:
-        """Run all simulations for the configured scenarios (placeholder method)."""
-        pass
+        Executes the full pipeline: load -> process -> optimize -> visualize.
+        """
+        original_cwd = Path.cwd()
+        try:
+            # Change CWD to the reliable, absolute 'src' path
+            os.chdir(self.src_path)
+
+            print(f"\n[1/3] Loading and processing data for '{self.question_name}'...")
+            loader = DataLoader(input_path="../data", question_name=self.question_name)
+            
+            # The runner then uses the loader to create the DataProcessor
+            processor = DataProcessor(loader)
+            print("...Data preparation complete.")
+
+            print(f"\n[2/3] Building and solving the optimization model...")
+            
+            model = OptModel(processor.hourly_params, processor.system_params)
+            results_df = model.solve()
+
+            print(f"\n[3/3] Visualizing results...")
+            if results_df is not None:
+                visualizer = DataVisualizer(processor)
+                # Add self-consumption column for the visualizer if needed
+                results_df['pv_self_consumption_kw'] = results_df[['pv_generation_kw', 'flexible_load_kw']].min(axis=1)
+                visualizer.plot_optimization_results(results_df)
+            else:
+                print("...No results to visualize as the optimization failed.")
+
+        except Exception as e:
+            print(f"\nAn ERROR occurred during the run: {e}")
+            import traceback
+            traceback.print_exc() # This gives more detail on errors
+        finally:
+            # Always change back to the original directory
+            os.chdir(original_cwd)
+            print(f"\n--- Scenario '{self.question_name}' finished. ---")
