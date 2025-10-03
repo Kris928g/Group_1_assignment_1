@@ -93,10 +93,10 @@ class OptModel:
         
         import_tariff = self.system_params['import_tariff_dkk_kwh']
         export_tariff = self.system_params['export_tariff_dkk_kwh']
-        
+
         daily_cost = gp.quicksum(
-            self.vars['import'][h] * (prices[h] + import_tariff) - \
-            self.vars['export'][h] * (prices[h] - export_tariff)
+            self.vars['import'][h] * (prices[h] + import_tariff ) - \
+            self.vars['export'][h] * (prices[h] - export_tariff )
             for h in self.hours
         )
         
@@ -116,7 +116,7 @@ class OptModel:
         # 1. Energy Balance Constraint (for each hour)
         #    Sources (PV Used + Grid Import) = Sinks (Load + Grid Export)
         self.model.addConstrs((
-            self.vars['pv_used'][h] + self.vars['import'][h] == self.vars['load'][h] + self.vars['export'][h]
+            self.vars['pv_used'][h] + self.vars['import'][h] - self.vars['export'][h] == self.vars['load'][h] 
             for h in self.hours), name="energy_balance"
         )
 
@@ -159,8 +159,9 @@ class OptModel:
 
         # Add input data and calculated costs for comprehensive analysis
         results_df['energy_price_dkk_kwh'] = self.hourly_params['energy_price_dkk_kwh'].values
-        tariff = self.system_params['import_tariff_dkk_kwh']
-        results_df['hourly_cost_dkk'] = (results_df['grid_import_kw'] * (results_df['energy_price_dkk_kwh'] + tariff)) - \
-                                       (results_df['grid_export_kw'] * (results_df['energy_price_dkk_kwh'] - tariff))
+        tariff_import = self.system_params['import_tariff_dkk_kwh']
+        tariff_export = self.system_params['export_tariff_dkk_kwh']
+        results_df['hourly_cost_dkk'] = (results_df['grid_import_kw'] * (results_df['energy_price_dkk_kwh'] + tariff_import)) - \
+                                       (results_df['grid_export_kw'] * (results_df['energy_price_dkk_kwh'] - tariff_export))
         
         return results_df

@@ -63,6 +63,8 @@ class DataProcessor:
         params = {
             'import_tariff_dkk_kwh': self.loader.bus_params[0]['import_tariff_DKK/kWh'],
             'export_tariff_dkk_kwh': self.loader.bus_params[0]['export_tariff_DKK/kWh'],
+            'import_penalty_dkk_kwh': self.loader.bus_params[0]['penalty_excess_import_DKK/kWh'],
+            'export_penalty_dkk_kwh': self.loader.bus_params[0]['penalty_excess_export_DKK/kWh'],
             'max_import_kw': self.loader.bus_params[0]['max_import_kW'],
             'max_export_kw': self.loader.bus_params[0]['max_export_kW'],
             'max_load_power_kw': self.loader.appliance_params['load'][0]['max_load_kWh_per_hour'],

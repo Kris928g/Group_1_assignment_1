@@ -48,32 +48,40 @@ class DataVisualizer:
 
     def plot_optimization_results(self, results_df: pd.DataFrame):
         """
-        Visualizes the results from the optimization model.
+        Visualizes the full results from the optimization model, now including
+        PV curtailment.
 
         Args:
             results_df (pd.DataFrame): The DataFrame containing the optimal schedule
-                                       and other output variables from the model.
+                                       from the optimization model.
         """
-        if not isinstance(results_df, pd.DataFrame):
-            raise TypeError("results_df must be a pandas DataFrame.")
+        if 'pv_curtailment_kw' not in results_df.columns:
+            raise ValueError("Error: 'pv_curtailment_kw' column not found in results DataFrame.")
             
-        plt.figure(figsize=(12, 7))
+        plt.figure(figsize=(16, 8)) # Make the plot a bit wider for clarity
         
-        # Stacked bar chart for energy sources: self-consumed solar and grid import
+        # Plot the sources of energy for the load
+        # We need to calculate self-consumption for the bar plot
+        results_df['pv_self_consumption_kw'] = results_df[['pv_generation_kw', 'flexible_load_kw']].min(axis=1)
         plt.bar(results_df.index, results_df['pv_self_consumption_kw'], label='PV Self-Consumption', color='orange')
         plt.bar(results_df.index, results_df['grid_import_kw'], bottom=results_df['pv_self_consumption_kw'], label='Grid Import', color='skyblue')
 
-        # Line plot for the total scheduled load
-        plt.plot(results_df.index, results_df['flexible_load_kw'], 'o-', color='black', label='Optimal Load Schedule')
+        # Plot the total scheduled load on top
+        plt.plot(results_df.index, results_df['flexible_load_kw'], 'o-', color='black', label='Optimal Load Schedule', linewidth=2)
         
-        # Line plot for surplus PV being exported
-        plt.plot(results_df.index, results_df['grid_export_kw'], 'g--' , label='Grid Export')
+        # Plot the grid export
+        plt.plot(results_df.index, results_df['grid_export_kw'], '--', color='green', label='Grid Export')
 
-        plt.title('Optimal Energy Schedule')
-        plt.xlabel('Hour of Day')
-        plt.ylabel('Power (kW)')
+        # --- NEW PLOT ELEMENT FOR CURTAILMENT ---
+        # Plot the curtailed (wasted) PV power as a dashed red line
+        plt.plot(results_df.index, results_df['pv_curtailment_kw'], ':', color='red', marker='x', markersize=5, label='PV Curtailment')
+        
+        # --- Final Touches ---
+        plt.title('Optimal Energy Schedule', fontsize=16)
+        plt.xlabel('Hour of Day', fontsize=12)
+        plt.ylabel('Power (kW)', fontsize=12)
         plt.xticks(range(24))
-        plt.legend()
+        plt.legend(fontsize=11)
         plt.grid(True, which='both', linestyle='--', linewidth=0.5)
         plt.tight_layout()
         plt.show()

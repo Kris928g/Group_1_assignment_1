@@ -1,0 +1,15 @@
+[
+    {"consumer_ID": "C1",
+    "grid_preferences": null,
+    "DER_preferences": null,
+    "load_preferences":[
+        {
+            "load_id": "FFL_01",
+            "min_total_energy_per_day_hour_equivalent": 8,
+            "max_total_energy_per_day_hour_equivalent": null,
+            "hourly_profile_ratio": null
+        }
+    ],
+    "storage_preferences": null,
+    "heat_pump_preferences": null}
+]
