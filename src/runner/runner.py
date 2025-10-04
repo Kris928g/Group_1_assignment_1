@@ -48,13 +48,14 @@ class Runner:
                 processor = DataProcessor(loader)
 
                 model = OptModel(processor.hourly_params, processor.system_params)
-                results_df = model.solve()
+                results_df, dual_values = model.solve()
 
                 if results_df is not None:
                     summary = ResultSummary(
                         results_df=results_df, 
                         hourly_params=processor.hourly_params, 
-                        system_params=processor.system_params
+                        system_params=processor.system_params,
+                        dual_values=dual_values
                     )
                     summary.print_summary()
                     

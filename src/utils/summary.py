@@ -8,7 +8,7 @@ class ResultSummary:
     """
     
 
-    def __init__(self, results_df: pd.DataFrame, hourly_params: pd.DataFrame, system_params: dict):
+    def __init__(self, results_df: pd.DataFrame, hourly_params: pd.DataFrame, system_params: dict, dual_values: dict):
         """
         Initializes the summary generator with the results and prepared input data.
 
@@ -21,18 +21,15 @@ class ResultSummary:
             raise ValueError("A non-empty results DataFrame is required.")
         
         self.results_df = results_df
-        # Store the direct data instead of the whole processor object
         self.hourly_params = hourly_params
         self.system_params = system_params
+        self.dual_values = dual_values
         
         self.kpis = {}
         self._calculate_kpis()
 
     def _calculate_kpis(self):
         """Private method to calculate all the important numbers."""
-        
-        # --- THIS CODE NOW USES self.hourly_params and self.system_params DIRECTLY ---
-        # --- NO OTHER CHANGES ARE NEEDED IN THIS METHOD ---
         
         # --- Energy Totals (kWh) ---
         self.kpis['total_pv_available'] = self.hourly_params['available_pv_kw'].sum()
@@ -50,7 +47,6 @@ class ResultSummary:
         self.kpis['cost_of_imports'] = (self.results_df['grid_import_kw'] * (prices + tariffs['import_tariff_dkk_kwh'])).sum()
         self.kpis['revenue_from_exports'] = (self.results_df['grid_export_kw'] * (prices - tariffs['export_tariff_dkk_kwh'])).sum()
 
-        # ... (rest of the file is unchanged) ...
         pv_self_consumed = self.results_df[['pv_generation_kw', 'flexible_load_kw']].min(axis=1).sum()
         if self.kpis['total_load_consumption'] > 0:
             self.kpis['self_sufficiency_ratio'] = (pv_self_consumed / self.kpis['total_load_consumption']) * 100
@@ -90,5 +86,15 @@ class ResultSummary:
         print("\n[ Performance Ratios ]")
         print(f"  Self-Sufficiency Ratio: {self.kpis['self_sufficiency_ratio']:.1f}% (of load met by own PV)")
         print(f"  Self-Consumption Ratio: {self.kpis['self_consumption_ratio']:.1f}% (of used PV that supplied the load)")
+
+
+        print("\n[ Economic Insights (Shadow Prices) ]")
+        shadow_price = self.dual_values.get('min_energy_shadow_price_dkk_kwh', 'N/A')
+        
+        if isinstance(shadow_price, float):
+             print(f"  Marginal Cost of Energy: {shadow_price:.3f} DKK/kWh")
+             print("    (This is the cost to supply one extra kWh of flexible load)")
+        else:
+            print("  Marginal Cost of Energy: Not Available")
         
         print("\n------------------------------------")
