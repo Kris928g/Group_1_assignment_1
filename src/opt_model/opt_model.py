@@ -24,7 +24,7 @@ class OptModel:
     def solve(self) -> Optional[Tuple[pd.DataFrame, Dict]]:
         """ Builds and solves the model based on the data it was initialized with. """
         self._define_variables()
-        self._define_objective() # This call was missing in the provided file
+        self._define_objective() 
         self._define_constraints()
         
         self.model.setParam('OutputFlag', 0)
@@ -91,12 +91,11 @@ class OptModel:
             )
             self.model.setObjective(energy_cost, GRB.MINIMIZE)
 
-    # --- THIS METHOD CONTAINS THE FIX ---
     def _define_constraints(self):
         """
         Defines all necessary constraints in a clean, data-driven manner.
         """
-        # --- 1. Base constraints (ALWAYS apply) ---
+        # Base constraints 
         self.model.addConstrs((
             self.vars['pv_used'][h] + self.vars['pv_curtailed'][h] == self.hourly_params['available_pv_kw'][h]
             for h in self.hours), name="pv_limit"
@@ -104,7 +103,7 @@ class OptModel:
         self.model.addConstrs((self.vars['import'][h] <= self.system_params['max_import_kw'] for h in self.hours), name="max_import")
         self.model.addConstrs((self.vars['export'][h] <= self.system_params['max_export_kw'] for h in self.hours), name="max_export")
 
-        # --- 2. Load-specific constraints (mutually exclusive) ---
+        # Load-specific constraints 
         if self.system_params.get('problem_type') == 'soft_constraint':
             self.model.addConstrs((self.vars['load'][h] <= self.system_params['max_load_power_kw'] for h in self.hours), name="max_load_soft")
             ref_profile = self.hourly_params['reference_load_profile_kw']
@@ -119,10 +118,10 @@ class OptModel:
                 name="min_daily_energy"
             )
 
-        # --- 3. Energy Balance and Battery constraints (mutually exclusive) ---
+        # Energy Balance and Battery constraints 
         if self.system_params.get('has_battery', False):
             # Energy balance WITH battery
-            self.model.addConstrs((
+            self.constraints['energy_balance'] = self.model.addConstrs((
                 self.vars['pv_used'][h] + self.vars['import'][h] + self.vars['discharge'][h] == \
                 self.vars['load'][h] + self.vars['export'][h] + self.vars['charge'][h]
                 for h in self.hours), name="energy_balance_with_battery"
@@ -141,7 +140,7 @@ class OptModel:
             self.model.addConstr(self.vars['soc'][self.hours[-1]] == bp['final_soc_kwh'], name="final_soc")
         else:
             # Energy balance WITHOUT battery
-            self.model.addConstrs((
+            self.constraints['energy_balance'] = self.model.addConstrs((
                 self.vars['pv_used'][h] + self.vars['import'][h] == self.vars['load'][h] + self.vars['export'][h]
                 for h in self.hours), name="energy_balance_no_battery"
             )
@@ -176,8 +175,24 @@ class OptModel:
         return results_df
 
     def _extract_dual_results(self) -> Dict:
-        """ Extracts the DUAL solution (the dictionary of shadow prices). """
+        """
+        Extracts the DUAL solution (shadow prices), adapting to the problem type.
+        """
         duals = {}
+        
         if 'min_total_daily_energy' in self.constraints:
             duals['min_energy_shadow_price_dkk_kwh'] = self.constraints['min_total_daily_energy'].Pi
+            
+
+        elif self.system_params.get('problem_type') == 'soft_constraint' and 'energy_balance' in self.constraints:
+            # The raw .Pi value is normalized. We must "un-scale" it.
+            C_I_tot = self.system_params.get('C_I_tot', 1)
+            energy_balance_constrs = self.constraints['energy_balance']
+            
+            raw_duals = [energy_balance_constrs[h].Pi for h in self.hours]
+            
+            # Un-scale each hourly dual to convert it back to DKK/kWh
+            unscaled_duals = [d * C_I_tot for d in raw_duals]
+            duals['hourly_marginal_price_dkk_kwh'] = unscaled_duals
+            
         return duals

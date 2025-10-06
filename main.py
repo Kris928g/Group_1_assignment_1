@@ -15,9 +15,9 @@ if __name__ == "__main__":
     try:
    
         SCENARIOS_TO_RUN = [
-            "question_1c",
-            "question_1a_FlatPrice",
-            "question_1a_increased_tariff"
+            "question_1b",
+            "question_1c"
+            
 
         ]
 
