@@ -17,9 +17,7 @@ if __name__ == "__main__":
         SCENARIOS_TO_RUN = [
             "question_1b",
             "question_1c"
-            
-
-        ]
+              ]
 
         runner = Runner(project_root_path=PROJECT_ROOT, scenarios_to_run=SCENARIOS_TO_RUN)
         
