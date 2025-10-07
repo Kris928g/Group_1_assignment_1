@@ -42,6 +42,13 @@ class DataProcessor:
         })
         self.hourly_params.index.name = 'hour'
 
+        self.system_params = self._extract_system_parameters()
+        
+        # Add the reference profile to hourly_params if it exists
+        if self.system_params.get('problem_type') == 'soft_constraint':
+            self.hourly_params['reference_load_profile_kw'] = self.system_params['reference_load_profile_kw']
+        else:
+            self.hourly_params['reference_load_profile_kw'] = [0] * 24
         # Second, extract all single-value system parameters into a dictionary
         self.system_params = self._extract_system_parameters()
 
@@ -60,6 +67,7 @@ class DataProcessor:
         """
         Extracts all non-hourly parameters into a clean dictionary.
         """
+        load_prefs = self.loader.usage_preference[0]['load_preferences'][0]
         params = {
             'import_tariff_dkk_kwh': self.loader.bus_params[0]['import_tariff_DKK/kWh'],
             'export_tariff_dkk_kwh': self.loader.bus_params[0]['export_tariff_DKK/kWh'],
@@ -70,4 +78,49 @@ class DataProcessor:
             'max_load_power_kw': self.loader.appliance_params['load'][0]['max_load_kWh_per_hour'],
             'min_daily_energy_kwh': self.loader.usage_preference[0]['load_preferences'][0]['min_total_energy_per_day_hour_equivalent']
         }
+        if load_prefs.get('hourly_profile_ratio') is not None:
+            # This is a "soft constraint" problem
+            params['problem_type'] = 'soft_constraint'
+            
+            # First, calculate the reference profile in kW
+            max_load = params['max_load_power_kw']
+            ratios = load_prefs['hourly_profile_ratio']
+            ref_profile_kw = [r * max_load for r in ratios]
+            params['reference_load_profile_kw'] = ref_profile_kw
+            
+            L_tot = sum(ref_profile_kw)
+            params['L_tot'] = L_tot
+            
+            # C_I^tot: Cost of inflexibly importing the entire reference load
+            prices = self.hourly_params['energy_price_dkk_kwh']
+            tariff = params['import_tariff_dkk_kwh']
+            C_I_tot = sum(ref_profile_kw[h] * (prices[h] + tariff) for h in range(24))
+            # Handle case where C_I_tot is zero to avoid division by zero
+            params['C_I_tot'] = C_I_tot if C_I_tot > 0 else 1.0
+
+        else:
+            # This is a "hard constraint" problem (Question 1a)
+            params['problem_type'] = 'hard_constraint'
+            params['min_daily_energy_kwh'] = load_prefs.get('min_total_energy_per_day_hour_equivalent')
+
+        # Check for the presence of a battery (Scenario 1c)
+        if self.loader.usage_preference[0].get('storage_preferences'):
+            print("...Battery data detected. Configuring for battery optimization.")
+            params['has_battery'] = True
+            storage_prefs = self.loader.usage_preference[0]['storage_preferences'][0]
+            battery_specs = next((s for s in self.loader.appliance_params.get('storage', []) if s['storage_id'] == storage_prefs['storage_id']), None)
+            
+            if battery_specs:
+                params['battery_params'] = {
+                    'initial_soc_kwh': storage_prefs['initial_soc_ratio'] * battery_specs['storage_capacity_kWh'],
+                    'final_soc_kwh': storage_prefs['final_soc_ratio'] * battery_specs['storage_capacity_kWh'],
+                    'capacity_kwh': battery_specs['storage_capacity_kWh'],
+                    'max_charge_kw': battery_specs['max_charging_power_ratio'],
+                    'max_discharge_kw': battery_specs['max_discharging_power_ratio'],
+                    'charge_efficiency': battery_specs['charging_efficiency'],
+                    'discharge_efficiency': battery_specs['discharging_efficiency']
+                }
+        else:
+            params['has_battery'] = False
+            
         return params

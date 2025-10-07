@@ -15,15 +15,13 @@ if __name__ == "__main__":
     try:
    
         SCENARIOS_TO_RUN = [
-            "question_1a",
-            "question_1a_FlatPrice",
-            "question_1a_increased_tariff"
+            "question_1b",
+            "question_1c"
+              ]
 
-        ]
-
-        experiment_runner = Runner(project_root_path=PROJECT_ROOT, scenarios_to_run=SCENARIOS_TO_RUN)
+        runner = Runner(project_root_path=PROJECT_ROOT, scenarios_to_run=SCENARIOS_TO_RUN)
         
-        experiment_runner.run_all_scenarios()
+        runner.run_all_scenarios()
         print("\nAll scenarios processed. Displaying plots.")
         print("Close any plot window to exit the program.")
         plt.show()

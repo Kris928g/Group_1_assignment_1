@@ -46,27 +46,80 @@ class DataVisualizer:
         fig.tight_layout()
         plt.show()
 
+# In src/data_ops/data_visualizer.py
+
     def plot_optimization_results(self, results_df: pd.DataFrame, block: bool = True):
         """
-        Visualizes the full results from the optimization model.
+        Visualizes the full energy balance using side-by-side stacked bars
+        for sources and sinks, keeping all bars above the zero line.
 
         Args:
             results_df (pd.DataFrame): The DataFrame with the optimal schedule.
-            block (bool): If True, the script will pause until the plot is closed.
-                          If False, the script continues after showing the plot.
+            block (bool): Controls whether the plot pauses script execution.
         """
-        plt.figure(figsize=(16, 8))
-        results_df['pv_self_consumption_kw'] = results_df[['pv_generation_kw', 'flexible_load_kw']].min(axis=1)
-        plt.bar(results_df.index, results_df['pv_self_consumption_kw'], label='PV Self-Consumption', color='orange')
-        plt.bar(results_df.index, results_df['grid_import_kw'], bottom=results_df['pv_self_consumption_kw'], label='Grid Import', color='skyblue')
-        plt.plot(results_df.index, results_df['flexible_load_kw'], 'o-', color='black', label='Optimal Load Schedule', linewidth=2)
-        plt.plot(results_df.index, results_df['grid_export_kw'], '--', color='green', label='Grid Export')
-        plt.plot(results_df.index, results_df['pv_curtailment_kw'], ':', color='red', marker='x', markersize=5, label='PV Curtailment')
+        fig, ax1 = plt.subplots(figsize=(18, 9))
+        hours = results_df.index
+        bar_width = 0.4 # Width for each of the two bars
+
+        # --- Left Y-Axis (ax1): Power Flows (kW) ---
+        ax1.set_xlabel('Hour of Day', fontsize=12)
+        ax1.set_ylabel('Power (kW)', fontsize=12)
+
+        # --- Bar Group 1 (Left Side): SOURCES ---
+        # 1. PV Generation is the base source
+        ax1.bar(hours - bar_width/2, results_df['pv_generation_kw'], width=bar_width, label='PV Generation', color='gold')
         
-        plt.title(f'Optimal Energy Schedule', fontsize=16)
-        plt.xlabel('Hour of Day', fontsize=12)
+        # 2. Battery Discharge is stacked on top of PV
+        if 'battery_discharge_kw' in results_df.columns:
+            ax1.bar(hours - bar_width/2, results_df['battery_discharge_kw'], bottom=results_df['pv_generation_kw'], width=bar_width, label='Battery Discharge', color='lightcoral')
 
-        plt.legend()
-        plt.tight_layout()
+        # 3. Grid Import is stacked on top of everything
+        bottom_for_import = results_df['pv_generation_kw'].copy()
+        if 'battery_discharge_kw' in results_df.columns:
+            bottom_for_import += results_df['battery_discharge_kw']
+        ax1.bar(hours - bar_width/2, results_df['grid_import_kw'], bottom=bottom_for_import, width=bar_width, label='Grid Import', color='deepskyblue')
+        
+        # --- Bar Group 2 (Right Side): SINKS ---
+        # 1. Load Served is the base sink
+        ax1.bar(hours + bar_width/2, results_df['flexible_load_kw'], width=bar_width, label='Load Served', color='dimgray')
+        
+        # 2. Battery Charging is stacked on top of the load
+        if 'battery_charge_kw' in results_df.columns:
+            ax1.bar(hours + bar_width/2, results_df['battery_charge_kw'], bottom=results_df['flexible_load_kw'], width=bar_width, label='Battery Charge', color='mediumpurple')
 
+        # 3. Grid Export is stacked on top of all sinks
+        bottom_for_export = results_df['flexible_load_kw'].copy()
+        if 'battery_charge_kw' in results_df.columns:
+            bottom_for_export += results_df['battery_charge_kw']
+        ax1.bar(hours + bar_width/2, results_df['grid_export_kw'], bottom=bottom_for_export, width=bar_width, label='Grid Export', color='mediumseagreen')
+
+        # --- Right Y-Axis (ax2): Battery State of Charge (kWh) ---
+        if 'battery_soc_kwh' in results_df.columns:
+            ax2 = ax1.twinx()
+            color = 'tab:blue'
+            ax2.set_ylabel('Battery State of Charge (kWh)', color=color, fontsize=12)
+            ax2.plot(hours, results_df['battery_soc_kwh'], color=color, marker='.', linestyle=':', linewidth=2.5, label='Battery SOC')
+            ax2.tick_params(axis='y', labelcolor=color)
+            battery_capacity = self.processor.system_params.get('battery_params', {}).get('capacity_kwh', results_df['battery_soc_kwh'].max())
+            if battery_capacity > 0:
+                ax2.set_ylim(0, battery_capacity * 1.1)
+
+        # --- Final Touches ---
+        fig.suptitle('Optimal Energy Schedule & Battery Performance', fontsize=16)
+        ax1.grid(True, which='both', linestyle='--', linewidth=0.5)
+        ax1.axhline(0, color='black', linewidth=0.8)
+        ax1.set_xticks(hours)
+        
+        # Combine legends from both axes
+        lines, labels = ax1.get_legend_handles_labels()
+        if 'ax2' in locals():
+            lines2, labels2 = ax2.get_legend_handles_labels()
+            # Manually order the legend for better grouping
+            # Sources first, then Sinks, then SOC
+            order = [0, 1, 2, 3, 4, 5] # Adjust if you have more/fewer items
+            ax1.legend([lines[i] for i in order] + lines2, [labels[i] for i in order] + labels2, loc='upper left', fontsize=10, ncol=2)
+        else:
+            ax1.legend(loc='upper left', fontsize=10, ncol=2)
+
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
         plt.show(block=block)
