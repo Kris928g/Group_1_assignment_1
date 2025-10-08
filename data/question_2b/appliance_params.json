@@ -1,0 +1,34 @@
+{
+  "DER": [
+    {
+      "DER_id": "PV_01",
+      "DER_type": "PV",
+      "max_power_kW": 3.0,
+      "min_power_ratio": 0.0,
+      "max_ramp_rate_up_ratio": 1.0,
+      "max_ramp_rate_down_ratio": 1.0
+    }
+  ],
+  "load": [
+    {
+      "load_type": "fully flexible load",
+      "load_id": "FFL_01",
+      "max_load_kWh_per_hour": 3.0,
+      "min_load_ratio": 0.0,
+      "max_ramp_rate_up_ratio": 1.0,
+      "max_ramp_rate_down_ratio": 1.0,
+      "min_on_time_h": 0,
+      "min_off_time_h": 0
+    }
+  ],
+  "storage": [
+    {
+      "storage_id": "BESS_01",
+      "storage_capacity_kWh": 6.0,
+      "max_charging_power_ratio": 0.15,
+      "max_discharging_power_ratio": 0.3,
+      "charging_efficiency": 0.9,
+      "discharging_efficiency": 0.9
+    }
+  ]
+}

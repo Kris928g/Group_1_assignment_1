@@ -1,0 +1,7 @@
+[
+  {
+    "consumer_id":"C1",
+    "connection_bus":"Bus1",
+    "list_appliances":["PV_01","FFL_01,BESS_01"]
+  }
+]
