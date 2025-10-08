@@ -41,7 +41,7 @@ class OptModel:
             print(f"...Optimization finished with status code: {self.model.Status}.")
             return None, None
 
-def _define_variables(self):
+    def _define_variables(self):
         """ Defines all necessary decision variables based on the data. """
         # --- Base energy flow variables (created for ALL scenarios) ---
         # These represent the fundamental choices the optimizer can make each hour.
@@ -68,7 +68,7 @@ def _define_variables(self):
             self.vars['discharge'] = self.model.addVars(self.hours, name="discharge", lb=0)  # Power flowing OUT of the battery (kW)
             self.vars['soc'] = self.model.addVars(self.hours, name="soc", lb=0)              # State of Charge: Energy stored in the battery (kWh)
 
-def _define_objective(self):
+    def _define_objective(self):
         """Builds the objective function based on the problem type detected in the data."""
         
         # --- DATA-DRIVEN LOGIC: Check if this is a "soft constraint" problem ---
@@ -117,7 +117,7 @@ def _define_objective(self):
             )
             self.model.setObjective(energy_cost, GRB.MINIMIZE)
 
-def _define_constraints(self):
+    def _define_constraints(self):
         # --- 1. Base constraints (ALWAYS apply to all scenarios) ---
         # The total PV used and curtailed must equal what's available from the sun.
         self.model.addConstrs((

@@ -97,12 +97,21 @@ class DataVisualizer:
         if 'battery_soc_kwh' in results_df.columns:
             ax2 = ax1.twinx()
             color = 'tab:blue'
-            ax2.set_ylabel('Battery State of Charge (kWh)', color=color, fontsize=12)
-            ax2.plot(hours, results_df['battery_soc_kwh'], color=color, marker='.', linestyle=':', linewidth=2.5, label='Battery SOC')
-            ax2.tick_params(axis='y', labelcolor=color)
-            battery_capacity = self.processor.system_params.get('battery_params', {}).get('capacity_kwh', results_df['battery_soc_kwh'].max())
+            ax2.set_ylabel('Battery State of Charge (Ratio)', color=color, fontsize=12)
+
+            battery_capacity = 0
+            if 'battery_params' in self.processor.system_params:
+                battery_capacity = self.processor.system_params['battery_params'].get('capacity_kwh', 0)
+            elif 'optimal_battery_size_kwh' in results_df: # Assuming we pass it back via the df for plotting
+                 battery_capacity = results_df['optimal_battery_size_kwh'].iloc[0]
+
             if battery_capacity > 0:
-                ax2.set_ylim(0, battery_capacity * 1.1)
+                soc_ratio = results_df['battery_soc_kwh'] / battery_capacity
+            else:
+                soc_ratio = results_df['battery_soc_kwh'] * 0 # Set to zero if no capacity
+            ax2.plot(hours, soc_ratio, color=color, marker='.', linestyle=':', linewidth=2.5, label='Battery SOC')
+            ax2.tick_params(axis='y', labelcolor=color)
+            ax2.set_ylim(0, 1.1)
 
         # --- Final Touches ---
         fig.suptitle('Optimal Energy Schedule & Battery Performance', fontsize=16)

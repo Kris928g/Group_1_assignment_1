@@ -138,4 +138,9 @@ class ResultSummary:
             print(f"  Total Energy Discharged: {self.kpis['total_battery_discharge_kwh']:.2f} kWh")
             print(f"  Round-trip Efficiency: {self.kpis['battery_round_trip_efficiency_percent']:.1f}%")
 
+        if self.system_params.get('has_battery', False):
+            if 'optimal_battery_size_kwh' in self.dual_values:
+                capacity = self.dual_values['optimal_battery_size_kwh']
+                print(f"  Optimal Battery Capacity: {capacity:.2f} kWh (Chosen by model)")
+
         print("\n------------------------------------")
