@@ -49,7 +49,7 @@ class OptModel_battery:
         self.vars['charge'] = self.model.addVars(self.hours, name="charge", lb=0)
         self.vars['discharge'] = self.model.addVars(self.hours, name="discharge", lb=0)
         self.vars['soc'] = self.model.addVars(self.hours, name="soc", lb=0)
-        self.vars['battery_capacity'] = self.model.addVar(name="battery_capacity", lb=0,)
+        self.vars['battery_capacity'] = self.model.addVar(name="battery_capacity", lb=0)
 
     def _define_objective(self):
         """ Combines daily operational cost (OPEX) and amortized capital cost (CAPEX). """
@@ -72,7 +72,6 @@ class OptModel_battery:
         ref_profile = self.hourly_params['reference_load_profile_kw']
         available_pv = self.hourly_params['available_pv_kw']
         
-        # --- BUG 1 FIX: Add the missing PV limit constraint ---
         self.model.addConstrs((
             self.vars['pv_used'][h] + self.vars['pv_curtailed'][h] == available_pv[h]
             for h in self.hours), name="pv_production_limit"
@@ -116,8 +115,6 @@ class OptModel_battery:
                 'flexible_load_kw': self.vars['load'][h].X,
                 'grid_import_kw': self.vars['import'][h].X,
                 'grid_export_kw': self.vars['export'][h].X,
-                # --- BUG 2 FIX: Remove the 'if' condition ---
-                # This class always has a battery, so we can always extract these values.
                 'battery_charge_kw': self.vars['charge'][h].X,
                 'battery_discharge_kw': self.vars['discharge'][h].X,
                 'battery_soc_kwh': self.vars['soc'][h].X,

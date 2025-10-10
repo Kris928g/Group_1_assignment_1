@@ -20,13 +20,13 @@ if __name__ == "__main__":
             "question_1a_increased_tariff",
             "question_1c",
               ]
-
+        
         runner = Runner(project_root_path=PROJECT_ROOT, scenarios_to_run=SCENARIOS_TO_RUN)
         
         #runner.run_all_scenarios()
-        runner.run_investment_sizing(scenario_name="question_1c", investment_cost_scalar=0.5)
+        runner.run_investment_sizing(scenario_name="question_1c", investment_cost_scalar=0.3)
         runner.run_investment_sizing(scenario_name="question_1c", investment_cost_scalar=1.2)
-        runner.run_investment_sizing(scenario_name="question_1c", investment_cost_scalar=1.5)
+        #runner.run_investment_sizing(scenario_name="question_1c", investment_cost_scalar=1.5)
         print("\nAll scenarios processed. Displaying plots.")
         print("Close any plot window to exit the program.")
         plt.show()

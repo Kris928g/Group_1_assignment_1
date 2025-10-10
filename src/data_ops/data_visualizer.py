@@ -5,12 +5,13 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
 from data_ops.data_processor import DataProcessor
+from typing import Dict, Optional
 
 class DataVisualizer:
     """
     Visualizes the prepared input data and the optimization results.
     """
-    def __init__(self, data_processor: DataProcessor):
+    def __init__(self, data_processor: DataProcessor, dual_values: Optional[Dict] = None):
         """
         Initializes the visualizer with processed data.
 
@@ -19,6 +20,7 @@ class DataVisualizer:
                                            prepared the data.
         """
         self.processor = data_processor
+        self.dual_values = dual_values if dual_values is not None else {}
         sns.set_theme(style="whitegrid")
 
     def plot_input_data(self):
@@ -50,8 +52,8 @@ class DataVisualizer:
 
     def plot_optimization_results(self, results_df: pd.DataFrame, block: bool = True):
         """
-        Visualizes the full energy balance using side-by-side stacked bars
-        for sources and sinks, keeping all bars above the zero line.
+        Visualizes the full energy balance using side-by-side stacked bars,
+        representing PV curtailment as a distinct stacked bar.
 
         Args:
             results_df (pd.DataFrame): The DataFrame with the optimal schedule.
@@ -59,30 +61,46 @@ class DataVisualizer:
         """
         fig, ax1 = plt.subplots(figsize=(18, 9))
         hours = results_df.index
-        bar_width = 0.4 # Width for each of the two bars
+        bar_width = 0.4
 
         # --- Left Y-Axis (ax1): Power Flows (kW) ---
         ax1.set_xlabel('Hour of Day', fontsize=12)
-        ax1.set_ylabel('Power (kW)', fontsize=12)
+        ax1.set_ylabel('Power (kW) & Electricity price (Dkk/kWh)', fontsize=12)
 
         # --- Bar Group 1 (Left Side): SOURCES ---
-        # 1. PV Generation is the base source
-        ax1.bar(hours - bar_width/2, results_df['pv_generation_kw'], width=bar_width, label='PV Generation', color='gold')
-        
-        # 2. Battery Discharge is stacked on top of PV
-        if 'battery_discharge_kw' in results_df.columns:
-            ax1.bar(hours - bar_width/2, results_df['battery_discharge_kw'], bottom=results_df['pv_generation_kw'], width=bar_width, label='Battery Discharge', color='lightcoral')
+        # 1. PV Generation that is USED is the base of the bar.
+        ax1.bar(hours - bar_width/2, results_df['pv_generation_kw'], width=bar_width, label='PV Used', color='gold')
+        ax1.bar(hours - bar_width/2, results_df['pv_curtailment_kw'], bottom=results_df['pv_generation_kw'], width=bar_width, label='PV Curtailment', color='red', alpha=0.7)
 
-        # 3. Grid Import is stacked on top of everything
-        bottom_for_import = results_df['pv_generation_kw'].copy()
+        # 2. Battery Discharge is stacked on top of the TOTAL available PV (Used + Curtailed).
+        total_available_pv = self.processor.hourly_params['available_pv_kw']
+        if 'battery_discharge_kw' in results_df.columns:
+            ax1.bar(hours - bar_width/2, results_df['battery_discharge_kw'], bottom=total_available_pv, width=bar_width, label='Battery Discharge', color='lightcoral')
+
+        # 3. Grid Import is stacked on top of all other sources.
+        bottom_for_import = total_available_pv.copy()
         if 'battery_discharge_kw' in results_df.columns:
             bottom_for_import += results_df['battery_discharge_kw']
         ax1.bar(hours - bar_width/2, results_df['grid_import_kw'], bottom=bottom_for_import, width=bar_width, label='Grid Import', color='deepskyblue')
-        
+     
         # --- Bar Group 2 (Right Side): SINKS ---
         # 1. Load Served is the base sink
         ax1.bar(hours + bar_width/2, results_df['flexible_load_kw'], width=bar_width, label='Load Served', color='dimgray')
         
+
+        prices = self.processor.hourly_params['energy_price_dkk_kwh']
+        ax1.plot(
+            hours,
+            prices,
+            'o-', # Style: line with circle markers
+            color='cyan',
+            label='Electricity Price (DKK/kWh)',
+            linewidth=2.5,
+            markersize=7,
+            zorder=10 # zorder ensures the line is drawn on top of the bars
+        )
+
+
         # 2. Battery Charging is stacked on top of the load
         if 'battery_charge_kw' in results_df.columns:
             ax1.bar(hours + bar_width/2, results_df['battery_charge_kw'], bottom=results_df['flexible_load_kw'], width=bar_width, label='Battery Charge', color='mediumpurple')
@@ -92,7 +110,6 @@ class DataVisualizer:
         if 'battery_charge_kw' in results_df.columns:
             bottom_for_export += results_df['battery_charge_kw']
         ax1.bar(hours + bar_width/2, results_df['grid_export_kw'], bottom=bottom_for_export, width=bar_width, label='Grid Export', color='mediumseagreen')
-
         # --- Right Y-Axis (ax2): Battery State of Charge (kWh) ---
         if 'battery_soc_kwh' in results_df.columns:
             ax2 = ax1.twinx()
@@ -100,10 +117,12 @@ class DataVisualizer:
             ax2.set_ylabel('Battery State of Charge (Ratio)', color=color, fontsize=12)
 
             battery_capacity = 0
-            if 'battery_params' in self.processor.system_params:
+            if 'optimal_battery_size_kwh' in self.dual_values:
+                battery_capacity = self.dual_values['optimal_battery_size_kwh']
+            # 2. If not, fall back to the fixed size from system_params (operational run)
+            elif 'battery_params' in self.processor.system_params:
                 battery_capacity = self.processor.system_params['battery_params'].get('capacity_kwh', 0)
-            elif 'optimal_battery_size_kwh' in results_df: # Assuming we pass it back via the df for plotting
-                 battery_capacity = results_df['optimal_battery_size_kwh'].iloc[0]
+
 
             if battery_capacity > 0:
                 soc_ratio = results_df['battery_soc_kwh'] / battery_capacity
@@ -125,7 +144,7 @@ class DataVisualizer:
             lines2, labels2 = ax2.get_legend_handles_labels()
             # Manually order the legend for better grouping
             # Sources first, then Sinks, then SOC
-            order = [0, 1, 2, 3, 4, 5] # Adjust if you have more/fewer items
+            order = [0, 1, 2, 3, 4, 5,6] # Adjust if you have more/fewer items
             ax1.legend([lines[i] for i in order] + lines2, [labels[i] for i in order] + labels2, loc='upper left', fontsize=10, ncol=2)
         else:
             ax1.legend(loc='upper left', fontsize=10, ncol=2)

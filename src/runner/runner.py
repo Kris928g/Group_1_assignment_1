@@ -120,11 +120,11 @@ class Runner:
                 )
                 summary.print_summary()
 
-                visualizer = DataVisualizer(processor)
+                visualizer = DataVisualizer(processor, dual_values=dual_values)
                 visualizer.plot_optimization_results(results_df, block=False)
 
                 fig = plt.gcf()
-                fig.canvas.manager.set_window_title(f"Results for {base_capital_cost_per_kwh}")
+                fig.canvas.manager.set_window_title(f"Results for {scaled_capital_cost} DKK/kWh/day")
             else:                
                     print("...No results to summarize or visualize as the optimization failed.")
         except Exception as e:
