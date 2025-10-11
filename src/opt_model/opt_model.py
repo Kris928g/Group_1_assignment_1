@@ -100,7 +100,9 @@ class OptModel:
             # --- Part 3: Combine into the final normalized objective ---
             # Each part is scaled by its benchmark, making them dimensionless and addable.
             # The optimizer will now minimize this combined "dissatisfaction score".
-            normalized_objective = (1 / C_I_tot) * energy_cost + (1 / L_tot) * discomfort
+              # Weighting factor between 0 and 1
+            x = self.system_params.get('weight_cost', 0.5)
+            normalized_objective = (x / C_I_tot) * energy_cost + ((1-x) / L_tot) *  discomfort
             self.model.setObjective(normalized_objective, GRB.MINIMIZE)
             
         else: # This is the original 'hard_constraint' problem (like Question 1a)

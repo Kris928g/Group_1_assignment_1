@@ -156,3 +156,78 @@ These files allow customization of user behavior, DER production, and network co
 
 ## Starter Code Structure
 
+## Running the Analysis
+
+The primary entry point for all analyses is the **`main.py`** script, located in the project's root directory. This script acts as the main control panel where you can define and launch different experiments.
+
+The program has two main modes of operation, controlled by which function you call from `main.py`:
+
+### Mode 1: Operational Analysis (for Questions 1a, 1b, 1c)
+
+This mode runs the daily operational optimization for a predefined list of scenarios. It is used to analyze and compare the performance of different system configurations (e.g., different loads, tariffs, or the presence of a fixed-size battery).
+
+**How to use:**
+
+1.  **Define Scenarios:** Open `main.py` and modify the `SCENARIOS_TO_RUN` list. The strings in this list must exactly match the names of the corresponding data folders inside the `data/` directory.
+
+    ```python
+    # In main.py
+    SCENARIOS_TO_RUN = [
+        "question_1a",
+        "question_1a_double_load",
+        "question_1b",
+        "question_1c"
+    ]
+    ```
+
+2.  **Call the Runner:** In the `if __name__ == "__main__":` block of `main.py`, make sure the line that calls `run_all_scenarios()` is active.
+
+    ```python
+    # In main.py
+    runner = Runner(project_root_path=PROJECT_ROOT, scenarios_to_run=SCENARIOS_TO_RUN)
+    runner.run_all_scenarios()
+    ```
+
+3.  **Run:** Execute `python main.py` from your terminal. The program will loop through each scenario, solve the optimization, print a detailed summary to the console, and generate a plot for each.
+
+### Mode 2: Investment Sizing Analysis (for Question 2b)
+
+This mode runs the integrated investment model (`OptModel_battery`) to find the **optimal battery size** for a given scenario. It co-optimizes the upfront capital cost (CAPEX) with the daily operational savings (OPEX).
+
+**How to use:**
+
+1.  **Select Base Scenario:** This analysis is run on a single data scenario at a time (e.g., `question_1c`, which contains the necessary base battery parameters for scaling).
+
+2.  **Call the Investment Runner:** In the `if __name__ == "__main__":` block of `main.py`, call the `run_investment_sizing()` method. You must provide two arguments:
+    *   `scenario_name`: The data folder to use as a basis for the analysis.
+    *   `investment_cost_scalar`: A factor to scale the battery's capital cost. This is the key parameter for sensitivity analysis. `1.0` is the base cost, `0.5` represents a 50% cheaper battery, and `2.0` represents a 100% more expensive battery.
+
+3.  **Run:** Execute `python main.py`. The program will solve the MILP to find the most profitable battery size for the given investment cost. It will print a summary including the chosen capacity and generate the corresponding performance plot.
+
+### Example `main.py` Setup for Investment Analysis
+
+To run a sensitivity analysis on the investment cost, you would set up your `main.py` like this:
+
+```python
+# In main.py's if __name__ == "__main__": block
+
+    # Instantiate the runner (the scenarios list is not used for this specific call)
+    runner = Runner(project_root_path=PROJECT_ROOT, scenarios_to_run=[])
+
+    # --- Run an investment analysis for the 'question_1c' data ---
+
+    # Scenario 1: Find optimal size with BASE investment cost
+    print("\n--- Running Investment Analysis with Base Cost ---")
+    runner.run_investment_sizing(scenario_name="question_1c", investment_cost_scalar=1.0)
+    
+    # Scenario 2: Find optimal size if batteries become 50% CHEAPER
+    print("\n--- Running Investment Analysis with Low Cost ---")
+    runner.run_investment_sizing(scenario_name="question_1c", investment_cost_scalar=0.5)
+
+    # Scenario 3: Find optimal size if batteries become 100% MORE EXPENSIVE
+    print("\n--- Running Investment Analysis with High Cost ---")
+    runner.run_investment_sizing(scenario_name="question_1c", investment_cost_scalar=2.0)
+
+    # This final call keeps all generated plot windows open for comparison
+    plt.show()
+
